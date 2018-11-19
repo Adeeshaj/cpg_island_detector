@@ -7,7 +7,6 @@ Created on Mon Nov 19 17:59:53 2018
 """
 
 import numpy as np
-from hmmlearn import hmm
 
 def get_input_sequence(filename):
     file = open(filename, "r")
@@ -17,19 +16,39 @@ def get_input_sequence(filename):
     
     for char in sequence:
         if char == "a":
-            out.append([0])
+            out.append(0)
         elif char == "c":
-            out.append([1])
+            out.append(1)
         elif char == "g":
-            out.append([2])
+            out.append(2)
         else:
-            out.append([3])
+            out.append(3)
             
     return np.array(out)
 
 
+#the Viterbi algorithm
+def viterbi(emission_probs, transition_probs, initial_dist, emissions):
+    probs = emission_probs[:, 0] * initial_dist
+    stack = []
+    num_states = transition_probs.shape[0]
 
+    for emission in emissions[1:]:
+        trans_probs = transition_probs * np.row_stack(probs)
+        max_col_ixs = np.argmax(trans_probs, axis=0)
+        probs = emission_probs[:, emission] * trans_probs[max_col_ixs, np.arange(num_states)]
+        probs = [x*4.21 for x in probs] #to prevent values going to be 0
+        stack.append(max_col_ixs)
 
+    state_seq = [np.argmax(probs)]
+
+    while stack:
+        max_col_ixs = stack.pop()
+        state_seq.append(max_col_ixs[state_seq[-1]])
+
+    state_seq.reverse()
+
+    return state_seq
 
 states = ["O","A+", "C+", "G+", "T+", "A-", "C-", "G-", "T-"]
 n_states = len(states)
@@ -62,24 +81,14 @@ emission_probability = np.array([
   [0,0,0,1]
 ])
 
-model = hmm.MultinomialHMM(n_components=n_states)
-model.startprob_ = start_probability
-model.transmat_  = transition_probability
-model.emissionprob_ = emission_probability
-
 input_sequence = get_input_sequence("input.txt")
-logprob, output = model.decode(input_sequence, algorithm="viterbi")
+
+output = viterbi( emission_probability,transition_probability,start_probability, input_sequence)
 
 file = open("output.txt","w")
 for x in output:
     file.write(states[x][-1])
 file.close()
-
-
-print("Input:    %s"%" ".join([observations[x[0]] for x in input_sequence]))
-print("Output: %s"%" ".join([states[x][-1] for x in output]))
-print(logprob)
-
 
 
 
